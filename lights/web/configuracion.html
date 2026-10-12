@@ -41,6 +41,7 @@
           <label for="experiment" data-i18n="set.experiment">Nombre del experimento</label>
           <input type="text" id="experiment" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="64">
           <span class="hint" data-i18n="set.experiment_hint"></span>
+          <button type="button" class="link" id="to-archive" data-i18n="set.to_archive">Archivar este experimento y empezar otro ↓</button>
         </div>
         <div class="field">
           <label for="start" data-i18n="set.start">Inicio del experimento</label>
@@ -69,7 +70,7 @@
         <div class="field"><label for="ar-as" data-i18n="set.ar_as"></label><input type="text" id="ar-as" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="64"></div>
         <div class="field"><label for="ar-new" data-i18n="set.ar_new"></label><input type="text" id="ar-new" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="64"></div>
         <div class="field"><label for="ar-start" data-i18n="set.ar_start"></label><input type="datetime-local" id="ar-start" step="1"></div>
-        <div class="actions"><button type="submit" class="secondary" data-i18n="set.ar_review">Revisar</button></div>
+        <div class="actions"><button type="submit" data-i18n="set.ar_review">Archivar experimento…</button></div>
         <div class="confirm" id="ar-confirm" hidden>
           <strong data-i18n="set.ar_q"></strong>
           <ul id="ar-changes"></ul>

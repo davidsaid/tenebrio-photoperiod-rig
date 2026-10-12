@@ -747,6 +747,7 @@ async function initConfiguracion() {
     const start = $("ar-start").value;
     return { archive_as: $("ar-as").value.trim(), new_name: $("ar-new").value.trim(), start: start.length === 16 ? start + ":00" : start };
   };
+  $("to-archive").addEventListener("click", () => { $("ar-new").focus(); $("archive").closest("section").scrollIntoView({ block: "start" }); });
   $("archive").addEventListener("input", () => { $("archive").dataset.dirty = "1"; $("ar-notice").hidden = true; $("ar-confirm").hidden = true; });
   $("archive").addEventListener("submit", (ev) => {
     ev.preventDefault();

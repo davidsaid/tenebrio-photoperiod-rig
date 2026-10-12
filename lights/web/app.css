@@ -198,6 +198,7 @@ details.more summary { cursor: pointer; color: var(--accent); font-weight: 600; 
 /* Forms */
 form { display: grid; gap: 14px; }
 .field { display: grid; gap: 6px; }
+.field button.link { justify-self: start; text-align: left; }
 label { font-weight: 600; font-size: 0.92rem; }
 input[type="text"], input[type="datetime-local"] {
   width: 100%; font: 1rem var(--data); padding: 10px 12px; border-radius: 10px;
