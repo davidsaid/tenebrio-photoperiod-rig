@@ -39,6 +39,8 @@ dark control. It runs for weeks without a network, and it survives power cuts.
 
 ## Build it
 
+New to electronics or programming? Start with [how the rig works](docs/how-it-works.md).
+
 1. Buy the parts: [bill of materials](docs/bill-of-materials.md). They cost about €250
    (Spain, 2026), plus the four sensors and the enclosures.
 2. Install the software: [setup guide](docs/setup-guide.md).
