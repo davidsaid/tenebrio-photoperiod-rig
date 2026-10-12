@@ -1,0 +1,14 @@
+[Unit]
+Description=Tenebrio rig readings logger
+After=local-fs.target
+
+[Service]
+User=pi
+WorkingDirectory=/opt/tenebrio-lights
+ExecStart=/usr/bin/python3 /opt/tenebrio-lights/tenebrio_logger.py --config /var/lib/tenebrio-lights/config.yaml --readings /var/lib/tenebrio-lights/readings.csv --events /var/lib/tenebrio-lights/events.csv
+StateDirectory=tenebrio-lights
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

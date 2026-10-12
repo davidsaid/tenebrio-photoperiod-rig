@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tenebrio</title>
+<meta name="apple-mobile-web-app-title" content="Tenebrio">
+<meta name="theme-color" content="#eef2ef" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1411" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="/app.css">
+<script>try { const theme = localStorage.getItem("tenebrio-theme"); if (theme) document.documentElement.dataset.theme = theme; } catch (err) { /* private mode */ }</script>
+</head>
+<body data-title="title.settings">
+<main>
+  <nav>
+    <span class="brand">Tenebrio <i>molitor</i></span>
+    <a href="/" data-i18n="nav.home">Inicio</a>
+    <a href="/sistema" data-i18n="nav.system">Sistema</a>
+    <a href="/configuracion" data-i18n="nav.settings" aria-current="page">Configuración</a>
+  </nav>
+  <div id="alerts" role="status"></div>
+
+  <section id="locked" class="card" hidden>
+    <h1 data-i18n="set.login_title">Configuración protegida</h1>
+    <p class="hint" data-i18n="set.login_hint"></p>
+    <form id="login">
+      <div class="field">
+        <label for="password" data-i18n="set.password">Contraseña</label>
+        <input type="password" id="password" autocomplete="current-password" required>
+      </div>
+      <div class="actions"><button type="submit" data-i18n="set.login">Entrar</button></div>
+      <div class="notice" id="login-notice" hidden></div>
+    </form>
+  </section>
+
+  <div id="unlocked" hidden style="display:grid; gap:28px">
+    <section>
+      <div class="enc-head"><h1 data-i18n="set.schedule">Horario de luz</h1><button type="button" class="link" id="logout" data-i18n="set.logout">Salir</button></div>
+      <form id="config" novalidate>
+        <div class="field">
+          <label for="experiment" data-i18n="set.experiment">Nombre del experimento</label>
+          <input type="text" id="experiment" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="64">
+          <span class="hint" data-i18n="set.experiment_hint"></span>
+        </div>
+        <div class="field">
+          <label for="start" data-i18n="set.start">Inicio del experimento</label>
+          <input type="datetime-local" id="start" step="1" required>
+          <span class="hint" data-i18n="set.start_hint"></span>
+        </div>
+        <div id="t-edit-list" style="display:grid; gap:12px"></div>
+        <p class="hint" data-i18n="set.dur_hint"></p>
+        <div class="actions"><button type="submit" data-i18n="set.review">Revisar cambios</button></div>
+        <div class="confirm" id="confirm" hidden>
+          <strong data-i18n="set.confirm"></strong>
+          <ul id="changes"></ul>
+          <div class="actions">
+            <button type="button" id="save" data-i18n="set.save">Guardar</button>
+            <button type="button" class="secondary" id="cancel" data-i18n="set.cancel">Cancelar</button>
+          </div>
+        </div>
+        <div class="notice" id="notice" hidden></div>
+      </form>
+    </section>
+
+    <section>
+      <h2 data-i18n="set.ar_title">Archivar experimento</h2>
+      <p class="hint" data-i18n="set.ar_hint"></p>
+      <form id="archive" class="card" novalidate>
+        <div class="field"><label for="ar-as" data-i18n="set.ar_as"></label><input type="text" id="ar-as" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="64"></div>
+        <div class="field"><label for="ar-new" data-i18n="set.ar_new"></label><input type="text" id="ar-new" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="64"></div>
+        <div class="field"><label for="ar-start" data-i18n="set.ar_start"></label><input type="datetime-local" id="ar-start" step="1"></div>
+        <div class="actions"><button type="submit" class="secondary" data-i18n="set.ar_review">Revisar</button></div>
+        <div class="confirm" id="ar-confirm" hidden>
+          <strong data-i18n="set.ar_q"></strong>
+          <ul id="ar-changes"></ul>
+          <div class="actions">
+            <button type="button" id="ar-yes" data-i18n="set.ar_yes">Sí, archivar</button>
+            <button type="button" class="secondary" id="ar-cancel" data-i18n="set.cancel">Cancelar</button>
+          </div>
+        </div>
+        <div class="notice" id="ar-notice" hidden></div>
+      </form>
+    </section>
+
+    <section>
+      <h2 data-i18n="set.net_title">Red</h2>
+      <div class="rows"><div class="row"><span data-i18n="sys.hs_only"></span><span id="hs-state">—</span></div></div>
+      <div class="actions"><button type="button" class="secondary" id="hs-toggle">—</button></div>
+      <div class="confirm" id="hs-confirm" hidden>
+        <strong id="hs-question"></strong>
+        <div class="actions">
+          <button type="button" id="hs-save" data-i18n="set.hs_yes">Sí, cambiar</button>
+          <button type="button" class="secondary" id="hs-cancel" data-i18n="set.cancel">Cancelar</button>
+        </div>
+      </div>
+      <div class="notice" id="hs-notice" hidden></div>
+      <p class="hint" data-i18n="set.hs_hint"></p>
+    </section>
+
+    <section>
+      <h2 data-i18n="set.pw_title">Contraseña de configuración</h2>
+      <form id="pw-form" class="card">
+        <input type="text" autocomplete="username" value="tenebrio" hidden>
+        <div class="field"><label for="pw-current" data-i18n="set.pw_current"></label><input type="password" id="pw-current" autocomplete="current-password" required></div>
+        <div class="field"><label for="pw-new" data-i18n="set.pw_new"></label><input type="password" id="pw-new" autocomplete="new-password" required></div>
+        <div class="field"><label for="pw-repeat" data-i18n="set.pw_repeat"></label><input type="password" id="pw-repeat" autocomplete="new-password" required></div>
+        <div class="actions"><button type="submit" class="secondary" data-i18n="set.pw_change">Cambiar contraseña</button></div>
+        <div class="notice" id="pw-notice" hidden></div>
+      </form>
+    </section>
+
+    <section>
+      <h2 data-i18n="set.off_title">Apagar la Pi</h2>
+      <p class="hint" data-i18n="set.off_hint"></p>
+      <div class="actions"><button type="button" class="danger" id="off-button" data-i18n="set.off_button">Apagar la Pi</button></div>
+      <div class="confirm" id="off-confirm" hidden>
+        <strong data-i18n="set.off_q"></strong>
+        <div class="actions">
+          <button type="button" class="danger" id="off-yes" data-i18n="set.off_yes">Sí, apagar</button>
+          <button type="button" class="secondary" id="off-cancel" data-i18n="set.cancel">Cancelar</button>
+        </div>
+      </div>
+      <div class="notice" id="off-notice" hidden></div>
+    </section>
+  </div>
+
+  <section>
+    <h2 id="h-theme" data-i18n="set.theme_title">Apariencia</h2>
+    <div class="segmented" id="theme" role="group" aria-labelledby="h-theme">
+      <button type="button" data-theme-choice="" data-i18n="set.theme_system">Como el teléfono</button>
+      <button type="button" data-theme-choice="light" data-i18n="set.theme_light">Claro</button>
+      <button type="button" data-theme-choice="dark" data-i18n="set.theme_dark">Oscuro</button>
+    </div>
+    <p class="hint" data-i18n="set.theme_hint"></p>
+  </section>
+</main>
+<script src="/i18n.js"></script>
+<script src="/app.js"></script>
+<script>initConfiguracion();</script>
+</body>
+</html>

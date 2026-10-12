@@ -1,0 +1,14 @@
+[Unit]
+Description=Tenebrio rig Wi-Fi: home Wi-Fi when available, else the hotspot
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+# Root: switches NetworkManager connections.
+WorkingDirectory=/opt/tenebrio-lights
+ExecStart=/usr/bin/python3 /opt/tenebrio-lights/tenebrio_network.py --events /var/lib/tenebrio-lights/events.csv
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

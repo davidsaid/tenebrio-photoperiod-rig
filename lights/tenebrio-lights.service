@@ -1,0 +1,15 @@
+[Unit]
+Description=Tenebrio photoperiod light controller
+# Deliberately no dependency on the network or time sync: the controller starts at boot
+# and holds every light off until the clock is trusted.
+After=local-fs.target
+
+[Service]
+User=pi
+ExecStart=/usr/bin/python3 /opt/tenebrio-lights/tenebrio_lights.py --config /var/lib/tenebrio-lights/config.yaml --events /var/lib/tenebrio-lights/events.csv
+StateDirectory=tenebrio-lights
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

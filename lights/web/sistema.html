@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tenebrio</title>
+<meta name="apple-mobile-web-app-title" content="Tenebrio">
+<meta name="theme-color" content="#eef2ef" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1411" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="/app.css">
+<script>try { const theme = localStorage.getItem("tenebrio-theme"); if (theme) document.documentElement.dataset.theme = theme; } catch (err) { /* private mode */ }</script>
+</head>
+<body data-title="title.system">
+<main>
+  <nav>
+    <span class="brand">Tenebrio <i>molitor</i></span>
+    <a href="/" data-i18n="nav.home">Inicio</a>
+    <a href="/sistema" data-i18n="nav.system" aria-current="page">Sistema</a>
+    <a href="/configuracion" data-i18n="nav.settings">Configuración</a>
+  </nav>
+  <div id="alerts" role="status"></div>
+
+  <section>
+    <h2 data-i18n="sys.pi">Raspberry Pi</h2>
+    <div class="rows">
+      <div class="row"><span data-i18n="sys.time"></span><span class="num" id="now">—</span></div>
+      <div class="row"><span data-i18n="sys.clock"></span><span id="clock">—</span></div>
+      <div class="row"><span data-i18n="sys.cpu"></span><span class="num" id="cpu">—</span></div>
+      <div class="row"><span data-i18n="sys.power"></span><span id="power">—</span></div>
+      <div class="row"><span data-i18n="sys.last"></span><span class="num" id="lastread">—</span></div>
+    </div>
+    <p class="hint" data-i18n="sys.cpu_hint"></p>
+  </section>
+
+  <section>
+    <h2 data-i18n="sys.net">Red</h2>
+    <div class="rows">
+      <div class="row"><span data-i18n="sys.connected"></span><span id="wifi">—</span></div>
+      <div class="row"><span data-i18n="sys.hs_only"></span><span id="hs-state">—</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2 data-i18n="sys.archive">Experimentos archivados</h2>
+    <ul class="archive-list" id="archive-list"><li class="empty">…</li></ul>
+    <a class="download" href="/descargar/archivo.zip"><b data-i18n="sys.zip">Todo el archivo (ZIP)</b><span data-i18n="sys.zip_hint"></span></a>
+  </section>
+
+  <section>
+    <h2 data-i18n="sys.outages">Cortes de luz</h2>
+    <ul class="events" id="outages"><li class="empty">…</li></ul>
+  </section>
+
+  <section>
+    <h2 data-i18n="sys.events">Registro de eventos</h2>
+    <ul class="events" id="events"><li class="empty">…</li></ul>
+  </section>
+</main>
+<script src="/i18n.js"></script>
+<script src="/app.js"></script>
+<script>initSistema();</script>
+</body>
+</html>

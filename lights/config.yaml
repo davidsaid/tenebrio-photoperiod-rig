@@ -1,0 +1,35 @@
+# Light schedule for the Tenebrio photoperiod rig.
+#
+# Every treatment repeats the cycle  light -> dark -> light -> ...  counting from
+# `start`. Before `start` every light is off. Durations are "HH:MM:SS" in quotes
+# (hours may exceed 24), so cycles need not be 24 hours long.
+#
+#   light: "00:00:00"  -> always dark      dark: "00:00:00"  -> always light
+#
+# Treatment ids match the relays on the HAT: treatment 1 = K1 ... treatment 4 = K4.
+# A treatment left out of the list keeps its light off.
+#
+# `experiment` names the running experiment. Use letters, digits, ".", "_" or "-", no
+# spaces: archiving the experiment uses it as a folder name.
+#
+# `readings_interval` is how often tenebrio_logger.py records a row of readings, "HH:MM:SS".
+#
+# Times are elapsed time, not wall-clock time: across a daylight-saving change a
+# 24-hour cycle stays exactly 24 hours, so its switch times move by one hour on the
+# clock.
+
+# Two lit treatments and an unlit control (David, 2026-10-10). Which treatment gets which
+# photoperiod is still open. The control enclosure has no LEDs, so relays 3 and 4 are unused.
+# PLACEHOLDER start: set the real one before the experiment. Until `start`, every light
+# stays off.
+experiment: experiment-1
+start: 2026-10-20 08:00:00
+readings_interval: "00:05:00"
+
+treatments:
+  1:  # 4 h dark periods
+    light: "20:00:00"
+    dark: "04:00:00"
+  2:  # 20 h dark periods
+    light: "04:00:00"
+    dark: "20:00:00"

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tenebrio</title>
+<meta name="apple-mobile-web-app-title" content="Tenebrio">
+<meta name="theme-color" content="#eef2ef" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1411" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="/app.css">
+<script>try { const theme = localStorage.getItem("tenebrio-theme"); if (theme) document.documentElement.dataset.theme = theme; } catch (err) { /* private mode */ }</script>
+</head>
+<body data-title="ar.title">
+<main>
+  <nav>
+    <span class="brand">Tenebrio <i>molitor</i></span>
+    <a href="/" data-i18n="nav.home">Inicio</a>
+    <a href="/sistema" data-i18n="nav.system">Sistema</a>
+    <a href="/configuracion" data-i18n="nav.settings">Configuración</a>
+  </nav>
+  <a class="back" href="/sistema" data-i18n="ar.back">← Experimentos archivados</a>
+  <div id="alerts" role="status"></div>
+
+  <section class="card" aria-labelledby="day" id="summary">
+    <p class="eyebrow" data-i18n="home.experiment">Experimento</p>
+    <div class="summary-head">
+      <h1 class="day" id="day">—</h1>
+      <span class="muted small num" id="start-line"></span>
+    </div>
+    <table class="now-table">
+      <thead><tr><th data-i18n="ar.config">Configuración</th><th class="wide-only" data-i18n="ar.photoperiod">Fotoperiodo</th><th data-i18n="set.light">Luz</th><th data-i18n="set.dark">Oscuridad</th></tr></thead>
+      <tbody id="config-rows"></tbody>
+    </table>
+    <div class="facts" id="facts"></div>
+  </section>
+
+  <div class="window">
+    <label for="window"><span id="window-label"></span><span id="window-range"></span></label>
+    <input type="range" id="window" min="0" max="1000" step="1" value="1000" aria-describedby="window-range">
+  </div>
+  <fieldset class="overlay" id="overlay" hidden><legend data-i18n="ov.title">Eventos en las gráficas</legend><div class="chips" id="overlay-chips"></div></fieldset>
+
+  <div id="enclosures" style="display:grid; gap:16px"></div>
+
+  <section class="card" aria-labelledby="h-datos">
+    <h2 id="h-datos" data-i18n="dl.title">Descargar datos</h2>
+    <div class="downloads">
+      <a class="download" href="/descargar/lecturas.csv"><b data-i18n="dl.readings">Lecturas</b><span id="dl-readings-info">CSV</span></a>
+      <a class="download" href="/descargar/eventos.csv"><b data-i18n="dl.events">Eventos</b><span id="dl-events-info">CSV</span></a>
+    </div>
+    <p class="hint"><span data-i18n="dl.hint_before"></span> <span id="interval"></span><span data-i18n="dl.hint_after"></span></p>
+  </section>
+
+  <footer data-i18n="ar.readout_hint"></footer>
+</main>
+<script src="/i18n.js"></script>
+<script src="/app.js"></script>
+<script>initArchivo();</script>
+</body>
+</html>
