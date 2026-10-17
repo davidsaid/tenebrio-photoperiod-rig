@@ -70,8 +70,8 @@ On your computer, download this repository:
     git clone https://github.com/davidsaid/tenebrio-photoperiod-rig.git
     cd tenebrio-photoperiod-rig/lights
 
-Edit `config.yaml` if you want: the experiment name, the start, and each treatment's light
-and dark hours. You can also change all of this later on the website. Then install:
+Edit `config.yaml` if you want: the experiment name, the start, and the time each
+treatment's light goes on and off. You can also change all of this later on the website. Then install:
 
     ./deploy.sh pi@tenebrio.local
 
@@ -149,7 +149,8 @@ only". After about 30 seconds, join the `tenebrio` Wi-Fi with your phone and ope
 1. On **Settings**, change the settings password. It starts as `tenebrio`.
 2. Archive the test data: **Settings → Archive the experiment**. Give the real experiment
    its name and start time.
-3. Check each treatment's light and dark hours on **Settings**.
+3. Check each treatment's light-on and light-off times, and the photoperiod under them, on
+   **Settings**.
 4. Check that the sensor LEDs are covered and the cables are labelled.
 
 See [using-the-website.md](using-the-website.md) for the daily use.

@@ -12,16 +12,18 @@ from tenebrio_web import config_from_form, event_kind, light_periods, read_rows,
 
 def test_config_from_form():
     config = config_from_form({"start": "2026-10-20T08:00:00", "experiment": "dry-run-1",
-                               "treatments": [{"id": 1, "light": "20:00:00", "dark": "04:00:00"}]})
+                               "treatments": [{"id": 1, "light_on": "07:00", "light_off": "03:00"}]})
     assert config.treatments[1].dark == timedelta(hours=4)
     assert config.start.utcoffset() is not None
 
 
 @pytest.mark.parametrize("form, message", [
     ({"start": "nope", "treatments": []}, "Fecha de inicio"),
-    ({"start": "2026-10-20T08:00:00", "treatments": [{"id": 5, "light": "01:00:00", "dark": "01:00:00"}]}, "del 1 al 4"),
-    ({"start": "2026-10-20T08:00:00", "treatments": [{"id": 1, "light": "20:00", "dark": "04:00:00"}]}, "HH:MM:SS"),
-    ({"start": "2026-10-20T08:00:00", "treatments": [{"id": 1, "light": "00:00:00", "dark": "00:00:00"}]}, "ambas cero"),
+    ({"start": "2026-10-20T08:00:00", "treatments": [{"id": 5, "light_on": "07:00", "light_off": "03:00"}]}, "del 1 al 4"),
+    ({"start": "2026-10-20T08:00:00", "treatments": [{"id": 1, "light_on": "7:00", "light_off": "03:00"}]}, "HH:MM"),
+    ({"start": "2026-10-20T08:00:00", "treatments": [{"id": 1, "light_on": "07:00", "light_off": "24:00"}]}, "HH:MM"),
+    ({"start": "2026-10-20T08:00:00", "treatments": [{"id": 1, "light_on": "07:00"}]}, "HH:MM"),
+    ({"start": "2026-10-20T08:00:00", "treatments": [{"id": 1, "light_on": "07:00", "light_off": "07:00"}]}, "distintas"),
 ])
 def test_config_from_form_rejects(form, message):
     with pytest.raises(ConfigError, match=message):
@@ -46,12 +48,12 @@ def test_save_config_writes_valid_file_and_logs_change(tmp_path):
     config_path.write_text('start: 2026-10-20 08:00:00\nreadings_interval: "00:01:00"\n'
                            'treatments:\n  1: {light: "20:00:00", dark: "04:00:00"}\n')
     new = config_from_form({"start": "2026-10-21T08:00:00", "experiment": "dry-run-1",
-                            "treatments": [{"id": 2, "light": "04:00:00", "dark": "20:00:00"}]})
+                            "treatments": [{"id": 2, "light_on": "09:00", "light_off": "13:00"}]})
     save_config(new, config_path, events_path)
     assert set(load_config(config_path).treatments) == {2}
     assert 'readings_interval: "00:01:00"' in config_path.read_text()
     assert not list(tmp_path.glob("*.tmp"))
-    assert "treatment 1 light 20:00:00 dark 04:00:00 -> experiment dry-run-1, start 2026-10-21 08:00:00, treatment 2" in events_path.read_text()
+    assert "treatment 1 light on 08:00 off 04:00 -> experiment dry-run-1, start 2026-10-21 08:00:00, treatment 2 light on 09:00 off 13:00" in events_path.read_text()
 
 
 def stamp(hour, minute=0):
@@ -147,13 +149,14 @@ def test_archive_moves_files_read_only_and_starts_next_experiment(tmp_path):
     assert archived.experiment == "bench-tests" and archived.start.hour == 15
     new = load_config(config_path)
     assert new.experiment == "dry-run-1" and new.start == start and set(new.treatments) == {1}
+    assert 'light_on: "15:30"' in config_path.read_text()  # the old cycle's times, now written as times
     assert not readings.exists()
     assert events.read_text().startswith("timestamp,treatment,state,event\n")
     assert read_rows(events)[-1][3].startswith("experiment dry-run-1 started")
 
     info = tenebrio_web.archived_experiments(config_path)
     assert [e["name"] for e in info] == ["bench-tests"]
-    assert info[0]["treatments"] == [{"id": 1, "light": "20:00:00", "dark": "04:00:00"}]
+    assert info[0]["treatments"] == [{"id": 1, "light": "20:00:00", "dark": "04:00:00"}]  # as written
     assert info[0]["files"]["readings"]["rows"] == 1
 
     with pytest.raises(ConfigError, match="archive_exists"):
@@ -197,3 +200,10 @@ def test_chart_events_skip_set_rows_that_change_nothing():
     events = tenebrio_web.chart_events(rows)
     assert [(e["kind"], e["state"]) for e in events] == [("switch", "light"), ("controller", ""), ("switch", "dark"), ("outage", "")]
     assert events[0]["t"] == stamp(8).timestamp()
+
+
+def test_archived_treatments_shown_as_written():
+    assert tenebrio_web.archived_treatment(1, {"light": "00:00:30", "dark": "00:00:10"}) == \
+        {"id": 1, "light": "00:00:30", "dark": "00:00:10"}
+    assert tenebrio_web.archived_treatment(2, {"light_on": "09:00", "light_off": "13:00"}) == \
+        {"id": 2, "light_on": "09:00", "light_off": "13:00", "light": "04:00:00", "dark": "20:00:00"}

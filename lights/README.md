@@ -1,7 +1,7 @@
 # Light controller and readings logger
 
-Switches each treatment's LED strip through the relay HAT according to a light/dark
-cycle in `config.yaml`. It runs on the Pi as the systemd service `tenebrio-lights`.
+Switches each treatment's LED strip through the relay HAT at the times of day set in
+`config.yaml`. It runs on the Pi as the systemd service `tenebrio-lights`.
 A separate service, `tenebrio-logger`, records periodic readings and reports outages,
 and `tenebrio-web` serves a monitoring site; see "Readings" and "Monitoring site" below.
 
@@ -9,11 +9,13 @@ and `tenebrio-web` serves a monitoring site; see "Readings" and "Monitoring site
 
 The live schedule on the Pi is `/var/lib/tenebrio-lights/config.yaml`. Change it from the
 monitoring page, or from this folder with `./deploy.sh --push-config`. `config.yaml` here
-is the template that seeds it. Each treatment (1–4, matching relays K1–K4) has a `light`
-and a `dark` duration written as quoted `"HH:MM:SS"`. Every cycle starts with light,
-counting from the shared `start`; before `start`, all lights are off. Cycles need not be
-24 hours long. `light: "00:00:00"` means always dark, and `dark: "00:00:00"` means always
-light. `experiment` names the running experiment (letters, digits, `.`, `_`, `-`); it
+is the template that seeds it. Each treatment (1–4, matching relays K1–K4) has a
+`light_on` and a `light_off` time of day, written as quoted `"HH:MM"` (24-hour clock).
+A `light_off` earlier than `light_on` means the light period crosses midnight, so
+`"07:00"` to `"03:00"` gives 20 h of light and 4 h of dark. The two times must differ;
+a treatment left out keeps its light off. Before the shared `start`, all lights are off;
+from `start` on, each light follows its times at once. The keys are not `on`/`off`,
+because YAML 1.1 reads those as true and false. `experiment` names the running experiment (letters, digits, `.`, `_`, `-`); it
 becomes the folder name when the experiment is archived (see "Experiments and the
 archive").
 
@@ -48,8 +50,14 @@ not blink the lights.
   uptime, since offline the two clocks drift apart a few seconds a day. Otherwise every light
   is held off and the event log says so. Once the network is back, the kernel copies NTP
   time into the RTC (`CONFIG_RTC_SYSTOHC`), so the RTC stays correct.
-- **Elapsed time, not wall-clock time.** Across a daylight-saving change (2026-10-25), a
-  24-hour cycle stays exactly 24 hours, so its switch times move by one hour on the clock.
+- **Local wall-clock time.** The times are read on the Pi's local clock, so dark periods
+  stay in the local night (the experimenters' choice, 2026-10-17). On the night daylight
+  saving time ends (2026-10-25, 03:00 becomes 02:00), a dark period that spans 02:00–03:00
+  lasts an hour longer; in spring, it is an hour shorter.
+- **Configs from before 2026-10-17** set `light` and `dark` durations from `start`. The
+  controller still reads one with a 24-hour cycle, as `light_on` at the start's time of
+  day; the page writes it back in the new form on the next save. Archived configs are
+  shown as they were written.
 - Each relay is re-asserted every 60 s, in case the HAT ever resets.
 - Switching can lag the scheduled instant by up to 0.25 s (the poll interval).
 
@@ -160,7 +168,7 @@ no internet. Files are in `web/`: four pages sharing `app.css`, `app.js` and `i1
 - **Archivo** (`/archivo?e=<name>`), read-only: one archived experiment, its settings and
   its charts.
 - **Configuración** (`/configuracion`), behind the settings password: the experiment's
-  name and schedule (start and each treatment's durations), archiving the experiment, the "solo punto de acceso" switch (see Network), changing
+  name and schedule (start and each treatment's on and off times, with the photoperiod they give), archiving the experiment, the "solo punto de acceso" switch (see Network), changing
   the password, and shutting the Pi down. A schedule save is checked twice, in the page and
   on the server with the controller's own `load_config`; the file is replaced atomically,
   and an event-log row records the old and new schedule.

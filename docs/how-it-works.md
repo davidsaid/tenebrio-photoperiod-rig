@@ -127,7 +127,7 @@ Learn more: [I2C tutorial (SparkFun)](https://learn.sparkfun.com/tutorials/i2c/a
 
 ## Time: why the clock matters
 
-The schedule says, for example, "light from 08:00 for 20 hours". So the rig must know the
+The schedule says, for example, "light on at 07:00, off at 03:00". So the rig must know the
 correct time, even in a lab with no internet and after a power cut. It has two sources:
 
 - **NTP** (Network Time Protocol): with internet, Linux asks time servers for the exact
@@ -153,7 +153,7 @@ Everything the rig knows is in ordinary text files on the SD card, in the folder
 
 | File | Contents | Written by |
 |------|----------|------------|
-| `config.yaml` | The settings: experiment name, start, light and dark hours per treatment | The website (Settings page) |
+| `config.yaml` | The settings: experiment name, start, light-on and light-off times per treatment | The website (Settings page) |
 | `readings.csv` | One row every 5 minutes: temperature and humidity of each sensor | Logger |
 | `events.csv` | One row per event: light switch, power cut, settings change… | All four programs |
 | `archive/<name>/` | The files of each finished experiment, read-only | The website (archive button) |

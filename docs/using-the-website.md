@@ -12,7 +12,8 @@ remembers its choice.
 
 - **Summary:** the experiment's name and day, the number of power cuts since the start,
   and the temperature and humidity of each enclosure and the room now.
-- **One card per enclosure:** is the light on, when it switches next, and charts of
+- **One card per enclosure:** the photoperiod and the times (for example
+  `20L:4D · 07:00–03:00`), is the light on, when it switches next, and charts of
   temperature and humidity. The shaded bands are the times the light was really off. The
   dashed line is the room.
 - **Slider:** how much time the charts show, from the last 6 hours to the whole
@@ -38,12 +39,15 @@ Read-only. The Pi's clock, processor temperature, power and network. Below that:
 Settings need the settings password. It starts as `tenebrio`. Change it in the section
 "Settings password".
 
-- **Light schedule:** the experiment name, the start, and the light and dark hours of
-  each treatment. Every cycle starts with light at the start time. Before the start, all
-  lights are off. Tap "Review changes", check the list, then "Save".
+- **Light schedule:** the experiment name, the start, and the time each treatment's light
+  goes on and off, every day. The photoperiod appears under the times, for example "20 h
+  light · 4 h dark". If the light goes off at an earlier time than it goes on (on 07:00,
+  off 03:00), the light period crosses midnight. The lights follow local time: on the
+  night daylight saving time ends, the dark period is one hour longer. Before the start, all
+  lights are off; from the start, each light follows its times at once. Tap "Review changes", check the list, then "Save".
 - **Archive the experiment:** ends the running experiment and starts a new one. The old
   data moves to a read-only folder and stays on the System page. The new experiment keeps
-  the same light and dark hours. Its lights are off until its start time. Use this to
+  the same light-on and light-off times. Its lights are off until its start time. Use this to
   separate practice runs from the real experiment.
 - **Network:** "Use the hotspot only" makes the Pi use only its own Wi-Fi, also after a
   restart. Use it to try the lab setup at home.

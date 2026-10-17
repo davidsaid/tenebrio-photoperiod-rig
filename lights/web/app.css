@@ -200,14 +200,15 @@ form { display: grid; gap: 14px; }
 .field { display: grid; gap: 6px; }
 .field button.link { justify-self: start; text-align: left; }
 label { font-weight: 600; font-size: 0.92rem; }
-input[type="text"], input[type="datetime-local"] {
+input[type="text"], input[type="datetime-local"], input[type="time"] {
   width: 100%; font: 1rem var(--data); padding: 10px 12px; border-radius: 10px;
   border: 1px solid var(--line); background: var(--surface); color: var(--fg);
 }
 input:invalid { border-color: var(--bad); }
 .t-edit { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 10px; }
 .t-edit .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.t-edit[data-off="true"] .pair { opacity: 0.4; }
+.t-edit[data-off="true"] .pair, .t-edit[data-off="true"] .photoperiod { opacity: 0.4; }
+.t-edit .photoperiod { margin: 0; }
 .check { display: flex; align-items: center; gap: 10px; font-weight: 700; font-family: var(--display); }
 .check input { width: 20px; height: 20px; accent-color: var(--accent); }
 .actions { display: flex; gap: 10px; flex-wrap: wrap; }

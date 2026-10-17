@@ -27,6 +27,18 @@ function notation(tr) {
   };
   return `${f(tr.light)}L:${f(tr.dark)}D`;
 }
+// "20 h" or "20 h 30 min", from HH:MM:SS.
+function hoursText(hms) {
+  const min = Math.round(hours(hms) * 60), h = Math.floor(min / 60), m = min % 60;
+  return m ? `${h} h ${m} min` : `${h} h`;
+}
+// The light period from on to off, as HH:MM:SS; crossing midnight when off is earlier than on.
+function lightBetween(on, off) {
+  const mins = (s) => +s.slice(0, 2) * 60 + +s.slice(3, 5);
+  const light = ((mins(off) - mins(on)) % 1440 + 1440) % 1440;
+  return `${pad(Math.floor(light / 60))}:${pad(light % 60)}:00`;
+}
+const times = (tr) => tr.light_on ? `${tr.light_on}–${tr.light_off}` : "—";
 function countdown(ms) {
   if (ms < 0) ms = 0;
   const s = Math.floor(ms / 1000), d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
@@ -362,7 +374,7 @@ function enclosureCard(e) {
   card.className = "card";
   card.dataset.key = e.key;
   card.innerHTML = `
-    <div class="enc-head"><h3>${e.name}</h3><span class="period">${e.treatment ? notation(e.treatment) : t("card.no_leds")}</span></div>
+    <div class="enc-head"><h3>${e.name}</h3><span class="period">${e.treatment ? notation(e.treatment) + (e.treatment.light_on ? ` · ${times(e.treatment)}` : "") : t("card.no_leds")}</span></div>
     ${archived ? "" : `<div class="state" data-state></div>
     <div class="values"><span class="v t" data-t>—</span><span class="v h" data-h>—</span></div>`}
     <div class="charts">
@@ -490,8 +502,8 @@ async function initArchivo() {
   const start = new Date(info.start), days = Math.max(0, (new Date(end) - start) / 86400000);
   $("day").textContent = info.name;
   $("start-line").textContent = t("ar.range", { a: fmtFull(start).slice(0, 10), b: fmtFull(new Date(end)).slice(0, 10), n: days.toFixed(days < 10 ? 1 : 0) });
-  const rows = info.treatments.map((tr) => `<tr><td>${t("treatment", { id: tr.id })}</td><td class="wide-only">${notation(tr)}</td><td>${tr.light}</td><td>${tr.dark}</td></tr>`);
-  if (info.sensors.includes("control")) rows.push(`<tr><td>${sensorName("control")}</td><td class="wide-only">${t("card.no_leds")}</td><td>—</td><td>—</td></tr>`);
+  const rows = info.treatments.map((tr) => `<tr><td>${t("treatment", { id: tr.id })}</td><td class="wide-only">${notation(tr)}</td><td>${times(tr)}</td><td>${tr.light}</td><td>${tr.dark}</td></tr>`);
+  if (info.sensors.includes("control")) rows.push(`<tr><td>${sensorName("control")}</td><td class="wide-only">${t("card.no_leds")}</td><td>—</td><td>—</td><td>—</td></tr>`);
   $("config-rows").innerHTML = rows.join("");
   const outages = info.outages.filter((o) => o.message.startsWith("outage:") && new Date(o.time) >= start).length;
   $("facts").innerHTML = `<span>${t("ar.archived")} <b>${info.archived ? fmtFull(new Date(info.archived)).slice(0, 16) : "—"}</b></span>`
@@ -561,7 +573,7 @@ async function initSistema() {
 
 // ---------- Configuración ----------
 
-const DURATION = /^\d+:[0-5]\d:[0-5]\d$/;
+const CLOCK_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 let formDirty = false;
 
 function toLocalInput(iso) { const d = new Date(iso); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; }
@@ -577,12 +589,21 @@ function renderForm() {
     div.innerHTML = `
       <label class="check"><input type="checkbox" id="on-${id}" ${tr ? "checked" : ""}> ${t("treatment", { id })}</label>
       <div class="pair">
-        <div class="field"><label for="light-${id}">${t("set.light")}</label><input type="text" id="light-${id}" inputmode="numeric" autocomplete="off" placeholder="20:00:00" value="${tr ? tr.light : ""}"></div>
-        <div class="field"><label for="dark-${id}">${t("set.dark")}</label><input type="text" id="dark-${id}" inputmode="numeric" autocomplete="off" placeholder="04:00:00" value="${tr ? tr.dark : ""}"></div>
-      </div>`;
+        <div class="field"><label for="light-on-${id}">${t("set.light_on")}</label><input type="time" id="light-on-${id}" value="${tr ? tr.light_on : ""}"></div>
+        <div class="field"><label for="light-off-${id}">${t("set.light_off")}</label><input type="time" id="light-off-${id}" value="${tr ? tr.light_off : ""}"></div>
+      </div>
+      <p class="hint photoperiod" id="photoperiod-${id}"></p>`;
     div.querySelector("input[type=checkbox]").addEventListener("change", (ev) => { div.dataset.off = String(!ev.target.checked); });
+    for (const input of div.querySelectorAll("input[type=time]")) input.addEventListener("input", () => showPhotoperiod(id));
     return div;
   }));
+  [1, 2, 3, 4].forEach(showPhotoperiod);
+}
+
+function showPhotoperiod(id) {
+  const on = $(`light-on-${id}`).value.slice(0, 5), off = $(`light-off-${id}`).value.slice(0, 5);
+  const ok = CLOCK_TIME.test(on) && CLOCK_TIME.test(off) && on !== off, light = ok ? lightBetween(on, off) : null;
+  $(`photoperiod-${id}`).textContent = ok ? `${t("set.photoperiod", { l: hoursText(light), d: hoursText(lightBetween(off, on)) })} (${notation({ light, dark: lightBetween(off, on) })})` : "";
 }
 
 function readForm() {
@@ -593,12 +614,12 @@ function readForm() {
   if (!start) errors.push(t("set.err_start"));
   for (const id of [1, 2, 3, 4]) {
     if (!$(`on-${id}`).checked) continue;
-    const light = $(`light-${id}`).value.trim(), dark = $(`dark-${id}`).value.trim();
-    for (const [what, v, el] of [["set.what_light", light, $(`light-${id}`)], ["set.what_dark", dark, $(`dark-${id}`)]]) {
-      el.setCustomValidity(DURATION.test(v) ? "" : "HH:MM:SS");
-      if (!DURATION.test(v)) errors.push(t("set.err_dur", { id, what: t(what) }));
-    }
-    treatments.push({ id, light, dark });
+    const light_on = $(`light-on-${id}`).value.slice(0, 5), light_off = $(`light-off-${id}`).value.slice(0, 5);
+    const valid = CLOCK_TIME.test(light_on) && CLOCK_TIME.test(light_off);
+    for (const el of [$(`light-on-${id}`), $(`light-off-${id}`)]) el.setCustomValidity(valid && light_on !== light_off ? "" : "HH:MM");
+    if (!valid) errors.push(t("set.err_time", { id }));
+    else if (light_on === light_off) errors.push(t("set.err_same", { id }));
+    treatments.push({ id, light_on, light_off });
   }
   return { form: { experiment, start: start.length === 16 ? start + ":00" : start, treatments }, errors };
 }
@@ -611,11 +632,11 @@ function describeChanges(form) {
   for (const id of [1, 2, 3, 4]) {
     const b = before[id], a = after[id];
     if (b && !a) out.push(t("set.ch_remove", { id }));
-    else if (!b && a) out.push(t("set.ch_add", { id, light: a.light, dark: a.dark }));
+    else if (!b && a) out.push(t("set.ch_add", { id, on: a.light_on, off: a.light_off }));
     else if (a) {
       const parts = [];
-      if (a.light !== b.light) parts.push(t("set.ch_light", { a: b.light, b: a.light }));
-      if (a.dark !== b.dark) parts.push(t("set.ch_dark", { a: b.dark, b: a.dark }));
+      if (a.light_on !== b.light_on) parts.push(t("set.ch_on", { a: b.light_on, b: a.light_on }));
+      if (a.light_off !== b.light_off) parts.push(t("set.ch_off", { a: b.light_off, b: a.light_off }));
       if (parts.length) out.push(`${t("treatment", { id })}: ${parts.join(", ")}`);
     }
   }
@@ -757,7 +778,7 @@ async function initConfiguracion() {
     else if (f.archive_as === f.new_name) errors.push(t("set.ar_err_same"));
     if (!f.start) errors.push(t("set.err_start"));
     if (errors.length) { $("ar-confirm").hidden = true; return notify("ar-notice", errors.join(" "), false); }
-    const periods = status.treatments.map((tr) => `${t("treatment", { id: tr.id })} ${notation(tr)}`).join(", ") || "—";
+    const periods = status.treatments.map((tr) => `${t("treatment", { id: tr.id })} ${notation(tr)} (${times(tr)})`).join(", ") || "—";
     $("ar-changes").replaceChildren(...[
       t("set.ar_q_old", { name: f.archive_as, readings: status.files.readings.rows, events: status.files.events.rows }),
       t("set.ar_q_new", { name: f.new_name, when: fmtFull(new Date(f.start)).slice(0, 16), periods }),

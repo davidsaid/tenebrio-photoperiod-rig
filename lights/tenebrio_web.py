@@ -16,7 +16,6 @@ import hashlib
 import hmac
 import json
 import os
-import re
 import secrets
 import socket
 import subprocess
@@ -27,7 +26,7 @@ import zipfile
 from io import BytesIO
 from urllib.parse import parse_qs, urlsplit
 from http.cookies import SimpleCookie
-from datetime import datetime, timedelta
+from datetime import datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -35,7 +34,8 @@ from pathlib import Path
 import yaml
 
 from tenebrio_lights import (EXPERIMENT_NAME, TREATMENT_IDS, Config, ConfigError, EventLog, Treatment,
-                             clock_source, config_to_yaml, format_duration, load_config, parse_duration)
+                             clock_source, config_to_yaml, format_clock_time, format_duration, load_config,
+                             parse_clock_time, parse_duration)
 from tenebrio_logger import SENSORS
 from tenebrio_network import HOTSPOT_ONLY
 
@@ -99,14 +99,10 @@ def status(config_path: Path, events_path: Path, readings_path: Path) -> dict:
         t = config.treatments.get(tid)
         if t is None:
             continue
-        upcoming = t.next_switch(now, config.start)
         treatments.append({
-            "id": tid,
-            "light": format_duration(t.light),
-            "dark": format_duration(t.dark),
+            **treatment_info(t),
             "is_light": t.is_light(now, config.start),
-            "next_switch": upcoming.isoformat(timespec="seconds") if upcoming else None,
-            "cycle_position": cycle_position(t, now, config.start),
+            "next_switch": t.next_switch(now, config.start).isoformat(timespec="seconds"),
         })
 
     events = [{"time": r[0], "treatment": r[1], "state": r[2], "message": r[3] if len(r) > 3 else "",
@@ -237,13 +233,10 @@ def set_hotspot_only(on: bool, events_path: Path) -> None:
     EventLog(events_path).record("", "", f"hotspot only switched {'on' if on else 'off'} from the Configuración page")
 
 
-def cycle_position(t: Treatment, now: datetime, start: datetime) -> float | None:
-    """Fraction of the way through the current cycle (0 = lights on), or None if not running."""
-    elapsed = now.timestamp() - start.timestamp()
-    cycle = (t.light + t.dark).total_seconds()
-    if elapsed < 0 or cycle == 0:
-        return None
-    return (elapsed % cycle) / cycle
+def treatment_info(t: Treatment) -> dict:
+    """The on/off times, and the photoperiod they give as light and dark durations."""
+    return {"id": t.id, "light_on": format_clock_time(t.on), "light_off": format_clock_time(t.off),
+            "light": format_duration(t.light), "dark": format_duration(t.dark)}
 
 
 def file_info(path: Path) -> dict:
@@ -268,14 +261,14 @@ def config_from_form(form: dict) -> Config:
         tid = int(entry["id"])
         if tid not in TREATMENT_IDS:
             raise ConfigError(f"Tratamiento {tid}: los números van del 1 al 4")
-        for name, value in (("luz", entry["light"]), ("oscuridad", entry["dark"])):
-            if not isinstance(value, str) or not re.fullmatch(r"\d+:[0-5]\d:[0-5]\d", value):
-                raise ConfigError(f"Tratamiento {tid}: la duración de {name} debe ser HH:MM:SS, por ejemplo 04:00:00")
-        light = parse_duration(entry["light"], f"treatment {tid} light")
-        dark = parse_duration(entry["dark"], f"treatment {tid} dark")
-        if light + dark == timedelta(0):
-            raise ConfigError(f"Tratamiento {tid}: luz y oscuridad no pueden ser ambas cero")
-        treatments[tid] = Treatment(tid, light, dark)
+        try:
+            on = parse_clock_time(entry.get("light_on"), f"treatment {tid} light_on")
+            off = parse_clock_time(entry.get("light_off"), f"treatment {tid} light_off")
+        except ConfigError:
+            raise ConfigError(f"Tratamiento {tid}: las horas deben ser HH:MM, de 00:00 a 23:59, por ejemplo 07:00")
+        if on == off:
+            raise ConfigError(f"Tratamiento {tid}: la hora de encendido y la de apagado deben ser distintas")
+        treatments[tid] = Treatment(tid, on, off)
     return Config(start, treatments, check_experiment_name(form.get("experiment", "")))
 
 
@@ -288,7 +281,7 @@ def check_experiment_name(name) -> str:
 
 def summarize(config: Config) -> str:
     parts = ([f"experiment {config.experiment}"] if config.experiment else []) + [f"start {config.start.strftime('%Y-%m-%d %H:%M:%S')}"]
-    parts += [f"treatment {tid} light {format_duration(t.light)} dark {format_duration(t.dark)}"
+    parts += [f"treatment {tid} light on {format_clock_time(t.on)} off {format_clock_time(t.off)}"
               for tid, t in sorted(config.treatments.items())]
     return ", ".join(parts) + ("" if config.treatments else ", no treatments")
 
@@ -373,8 +366,9 @@ def archived_experiments(config_path: Path) -> list[dict]:
 def archived_info(folder: Path) -> dict | None:
     try:
         raw = yaml.safe_load((folder / "config.yaml").read_text()) or {}
-        config = load_config(folder / "config.yaml")
-    except (OSError, ValueError, yaml.YAMLError):
+        start = datetime.fromisoformat(str(raw["start"])).astimezone()
+        treatments = [archived_treatment(int(tid), entry) for tid, entry in sorted((raw.get("treatments") or {}).items())]
+    except (OSError, KeyError, ValueError, yaml.YAMLError):
         return None
     readings = read_table(folder / "readings.csv")
     events = [{"time": r[0], "treatment": r[1], "state": r[2], "message": r[3], "kind": event_kind(r)}
@@ -382,17 +376,26 @@ def archived_info(folder: Path) -> dict | None:
     archived = raw.get("archived")
     return {
         "name": folder.name,
-        "start": config.start.isoformat(timespec="seconds"),
+        "start": start.isoformat(timespec="seconds"),
         "archived": archived.isoformat(timespec="seconds") if isinstance(archived, datetime) else archived,
         "first_reading": readings[0]["timestamp"] if readings else None,
         "last_reading": readings[-1]["timestamp"] if readings else None,
         "readings_interval": raw.get("readings_interval", "00:05:00"),
-        "treatments": [{"id": tid, "light": format_duration(t.light), "dark": format_duration(t.dark)}
-                       for tid, t in sorted(config.treatments.items())],
+        "treatments": treatments,
         "sensors": list(SENSORS),
         "outages": [e for e in events if e["kind"] == "outage"][::-1],
         "files": {name: file_info(folder / f"{name}.csv") for name in ("events", "readings")},
     }
+
+
+def archived_treatment(tid: int, entry: dict) -> dict:
+    """An archived config can predate on/off times (2026-10-17) and hold any light/dark
+    durations, so it is shown as written rather than validated like the live one."""
+    if set(entry) == {"light", "dark"}:
+        return {"id": tid, "light": format_duration(parse_duration(entry["light"], "light")),
+                "dark": format_duration(parse_duration(entry["dark"], "dark"))}
+    return treatment_info(Treatment(tid, parse_clock_time(entry["light_on"], "light_on"),
+                                    parse_clock_time(entry["light_off"], "light_off")))
 
 
 def archive_folder(config_path: Path, name: str) -> Path | None:

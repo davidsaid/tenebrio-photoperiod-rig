@@ -9,9 +9,9 @@ dark control. It runs for weeks without a network, and it survives power cuts.
 
 ## What it does
 
-- **Switches a 12 V LED strip in each enclosure** on a light/dark cycle, for example
-  20 hours of light and 4 hours of dark. Each treatment has its own cycle. Cycles do not
-  have to be 24 hours long.
+- **Switches a 12 V LED strip in each enclosure** on and off at set times every day, for
+  example on at 07:00 and off at 03:00: 20 hours of light and 4 hours of dark. Each
+  treatment has its own times. The website shows the photoperiod they give.
 - **Records temperature and humidity** in each enclosure and in the room every 5 minutes,
   with one SHT45 sensor each.
 - **Keeps a log of every event:** each light switch, power cut, settings change and
@@ -52,7 +52,7 @@ New to electronics or programming? Start with [how the rig works](docs/how-it-wo
 | Path | Contents |
 |------|----------|
 | `lights/` | All the software: light control (`tenebrio_lights.py`), logger (`tenebrio_logger.py`), website (`tenebrio_web.py`, `web/`), network service (`tenebrio_network.py`), systemd services, `deploy.sh` and tests. [lights/README.md](lights/README.md) has the technical details. |
-| `lights/config.yaml` | The schedule template: experiment name, start, and each treatment's light and dark hours |
+| `lights/config.yaml` | The schedule template: experiment name, start, and each treatment's light-on and light-off times |
 | `docs/` | Bill of materials, guides and wiring drawings (PDF and PNG) |
 | `tools/` | The Python scripts that draw the wiring drawings |
 

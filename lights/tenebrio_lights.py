@@ -1,8 +1,9 @@
-"""Switch each treatment's light from its light/dark cycle in config.yaml.
+"""Switch each treatment's light on and off at the times of day set in config.yaml.
 
-The state of every light is computed from the clock alone: elapsed time since the
-configured start, modulo the treatment's cycle. Nothing is saved between runs, so a
-reboot or a crash puts every light back in its scheduled state within a second.
+The state of every light is computed from the clock alone: whether the local time of day
+falls between the treatment's "on" and "off" times, from the configured start onwards.
+Nothing is saved between runs, so a reboot or a crash puts every light back in its
+scheduled state within a second.
 """
 
 import argparse
@@ -14,7 +15,7 @@ import signal
 import sys
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time as clock_time, timedelta, timezone
 from pathlib import Path
 
 import yaml
@@ -44,32 +45,43 @@ class ConfigError(ValueError):
 
 @dataclass(frozen=True)
 class Treatment:
+    """Light from `on` to `off` every day, by the Pi's local clock.
+
+    Following the local clock keeps the dark period in the local night: when daylight saving
+    time ends, that night's dark period is an hour longer (the experimenters' choice,
+    2026-10-17). An `off` earlier than `on` means the light period crosses midnight.
+    """
     id: int
-    light: timedelta
-    dark: timedelta
+    on: clock_time
+    off: clock_time
+
+    @property
+    def light(self) -> timedelta:
+        return (datetime.combine(date.min, self.off) - datetime.combine(date.min, self.on)) % timedelta(days=1)
+
+    @property
+    def dark(self) -> timedelta:
+        return timedelta(days=1) - self.light
 
     def is_light(self, now: datetime, start: datetime) -> bool:
-        # Timestamps, not datetime arithmetic: Python compares and subtracts datetimes that
-        # share a tzinfo by wall clock, which would shift every cycle at a DST change.
-        elapsed = timedelta(seconds=now.timestamp() - start.timestamp())
-        if elapsed < timedelta(0) or self.light == timedelta(0):
+        if now.timestamp() < start.timestamp():
             return False
-        if self.dark == timedelta(0):
-            return True
-        return elapsed % (self.light + self.dark) < self.light
+        wall = now.astimezone().time()
+        if self.on < self.off:
+            return self.on <= wall < self.off
+        return wall >= self.on or wall < self.off
 
-    def next_switch(self, now: datetime, start: datetime) -> datetime | None:
-        """When this light next changes state, or None if it never does."""
-        if self.light == timedelta(0) or self.dark == timedelta(0):
-            return None if now >= start or self.light == timedelta(0) else start
-        elapsed = now.timestamp() - start.timestamp()
-        if elapsed < 0:
-            return start
-        cycle = (self.light + self.dark).total_seconds()
-        position = elapsed % cycle
-        light = self.light.total_seconds()
-        remaining = light - position if position < light else cycle - position
-        return datetime.fromtimestamp(now.timestamp() + remaining).astimezone()
+    def next_switch(self, now: datetime, start: datetime) -> datetime:
+        """When this light next changes state."""
+        if now.timestamp() < start.timestamp():
+            if self.is_light(start, start):
+                return start
+            now = start
+        current = self.is_light(now, now)
+        day = now.astimezone().date()
+        switches = sorted(datetime.combine(day + timedelta(days=d), at).astimezone()
+                          for d in range(3) for at in (self.on, self.off))
+        return next(s for s in switches if s.timestamp() > now.timestamp() and self.is_light(s, s) != current)
 
 
 @dataclass(frozen=True)
@@ -95,6 +107,17 @@ def parse_duration(value, where: str) -> timedelta:
     return timedelta(hours=hours, minutes=minutes, seconds=seconds)
 
 
+def parse_clock_time(value, where: str) -> clock_time:
+    # Unquoted 07:00 is read by YAML 1.1 as the base-60 integer 420, so only strings are accepted.
+    if not isinstance(value, str) or not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", value.strip()):
+        raise ConfigError(f"{where}: write times of day in quotes as \"HH:MM\", 24-hour clock, got {value!r}")
+    return clock_time.fromisoformat(value.strip())
+
+
+def format_clock_time(value: clock_time) -> str:
+    return value.strftime("%H:%M")
+
+
 def format_duration(value: timedelta) -> str:
     seconds = int(value.total_seconds())
     return f"{seconds // 3600:02d}:{seconds // 60 % 60:02d}:{seconds % 60:02d}"
@@ -104,8 +127,8 @@ def config_to_yaml(config: Config, readings_interval: str) -> str:
     """Config file text as the web page writes it; load_config reads it back unchanged."""
     lines = [
         "# Light schedule for the Tenebrio photoperiod rig. Written by the monitoring page;",
-        "# see lights/README.md for the format. Durations are \"HH:MM:SS\" in quotes, and every",
-        "# cycle starts with light at `start`. Treatment ids match relays K1-K4.",
+        "# see lights/README.md for the format. Each treatment's light goes on at `light_on` and",
+        "# off at `light_off` every day, local time, from `start` on. Treatment ids match relays K1-K4.",
         *([f"experiment: {config.experiment}"] if config.experiment else []),
         f"start: {config.start.strftime('%Y-%m-%d %H:%M:%S')}",
         f'readings_interval: "{readings_interval}"',
@@ -113,7 +136,7 @@ def config_to_yaml(config: Config, readings_interval: str) -> str:
         "treatments:" + ("" if config.treatments else " {}"),
     ]
     for tid, t in sorted(config.treatments.items()):
-        lines += [f"  {tid}:", f'    light: "{format_duration(t.light)}"', f'    dark: "{format_duration(t.dark)}"']
+        lines += [f"  {tid}:", f'    light_on: "{format_clock_time(t.on)}"', f'    light_off: "{format_clock_time(t.off)}"']
     return "\n".join(lines) + "\n"
 
 
@@ -133,17 +156,31 @@ def load_config(path: Path) -> Config:
     for tid, entry in (raw["treatments"] or {}).items():
         if tid not in TREATMENT_IDS:
             raise ConfigError(f"treatment {tid!r}: ids are 1-4, one per relay")
-        if not isinstance(entry, dict) or set(entry) != {"light", "dark"}:
-            raise ConfigError(f"treatment {tid}: needs exactly 'light' and 'dark'")
-        treatment = Treatment(tid, parse_duration(entry["light"], f"treatment {tid} light"),
-                              parse_duration(entry["dark"], f"treatment {tid} dark"))
-        if treatment.light + treatment.dark == timedelta(0):
-            raise ConfigError(f"treatment {tid}: light and dark cannot both be zero")
+        if isinstance(entry, dict) and set(entry) == {"light", "dark"}:
+            entry = legacy_times(entry, start, tid)
+        # Not `on`/`off`: YAML 1.1 reads those keys as the booleans true and false.
+        if not isinstance(entry, dict) or set(entry) != {"light_on", "light_off"}:
+            raise ConfigError(f"treatment {tid}: needs exactly 'light_on' and 'light_off'")
+        treatment = Treatment(tid, parse_clock_time(entry["light_on"], f"treatment {tid} light_on"),
+                              parse_clock_time(entry["light_off"], f"treatment {tid} light_off"))
+        if treatment.on == treatment.off:
+            raise ConfigError(f"treatment {tid}: 'light_on' and 'light_off' must differ")
         treatments[tid] = treatment
     experiment = str(raw.get("experiment") or "")
     if experiment and not EXPERIMENT_NAME.fullmatch(experiment):
         raise ConfigError(f"experiment: {experiment!r} must be letters, digits, '.', '_' or '-', up to 64")
     return Config(start, treatments, experiment)
+
+
+def legacy_times(entry: dict, start: datetime, tid: int) -> dict:
+    """On/off times for a config from before 2026-10-17, which set light and dark durations
+    with the light starting at `start`. Only 24-hour cycles have an equivalent."""
+    light = parse_duration(entry["light"], f"treatment {tid} light")
+    dark = parse_duration(entry["dark"], f"treatment {tid} dark")
+    if light + dark != timedelta(days=1) or not light or not dark:
+        raise ConfigError(f"treatment {tid}: light {entry['light']} and dark {entry['dark']} is not a "
+                          "24-hour cycle; set 'light_on' and 'light_off' times instead")
+    return {"light_on": format_clock_time(start.time()), "light_off": format_clock_time((start + light).time())}
 
 
 class RelayHat:
@@ -295,7 +332,8 @@ def describe(config: Config, now: datetime) -> str:
             lines.append(f"treatment {tid}: not configured, light always off")
             continue
         state = "light" if t.is_light(now, config.start) else "dark"
-        lines.append(f"treatment {tid}: light {t.light}, dark {t.dark}, cycle {t.light + t.dark}; now {state}")
+        lines.append(f"treatment {tid}: on {format_clock_time(t.on)}, off {format_clock_time(t.off)} "
+                     f"(light {t.light}, dark {t.dark}); now {state}")
     return "\n".join(lines)
 
 
