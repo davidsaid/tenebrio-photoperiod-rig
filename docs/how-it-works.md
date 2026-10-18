@@ -12,13 +12,15 @@ flowchart LR
         logger["tenebrio-logger<br/>readings"]
         web["tenebrio-web<br/>website"]
         net["tenebrio-network<br/>Wi-Fi"]
+        check["tenebrio-validator<br/>light check"]
         files[("files on the SD card<br/>config.yaml, readings.csv,<br/>events.csv, archive/")]
-        systemd --> lights & logger & web & net
+        systemd --> lights & logger & web & net & check
     end
     clock["clock module (RTC)"] --> lights
     lights -- I2C --> relays["relay HAT"] -- 12 V --> strips["LED strips"]
+    check -- reads --> relays
     sensors["SHT45 sensors"] -- I2C --> logger
-    lights & logger & net --> files
+    lights & logger & net & check --> files
     web <--> files
     web -- Wi-Fi --> phone["your phone or laptop"]
 ```
@@ -52,11 +54,11 @@ Learn more: [what an operating system is](https://en.wikipedia.org/wiki/Operatin
 
 ## The programs: Python scripts
 
-The rig's own software is four programs written in **Python**, a programming language
+The rig's own software is five programs written in **Python**, a programming language
 that is popular in science. A Python program is a text file (for example
 `tenebrio_lights.py`). The Python interpreter reads the file and does what it says.
 
-Each of the four programs does one job, and each runs **forever in a loop**: it does its
+Each of the five programs does one job, and each runs **forever in a loop**: it does its
 job, waits a little, and does it again. They never stop by themselves.
 
 | Program | Its job | How often |
@@ -64,9 +66,10 @@ job, waits a little, and does it again. They never stop by themselves.
 | `tenebrio_lights.py` | Calculates from the clock and the schedule whether each light should be on, and switches the relays | 4 times per second |
 | `tenebrio_logger.py` | Reads every sensor and adds one row to the readings file | Every 5 minutes, at :00, :05, :10… |
 | `tenebrio_web.py` | Answers the browser when someone opens the website | When a request arrives |
-| `tenebrio_network.py` | Checks the Wi-Fi: home Wi-Fi if possible, else the Pi's own hotspot | Every 30 seconds |
+| `tenebrio_network.py` | Checks the Wi-Fi: home Wi-Fi if possible, else the Pi's own hotspot. Repairs the Wi-Fi if it stops working | Every 30 seconds |
+| `tenebrio_validator.py` | Reads each relay back and compares it with the schedule. Restarts the Pi if a light stays wrong | Every 15 seconds |
 
-Why four programs and not one? If one program has a problem, the others keep working. For
+Why five programs and not one? If one program has a problem, the others keep working. For
 example, a broken sensor cable can slow down the logger, but it can never delay a light
 switch.
 
@@ -85,7 +88,7 @@ example `tenebrio-lights.service`, which says:
 - to **start it again** a few seconds after it stops, for whatever reason
 
 So nobody needs to start anything. You plug in the Pi, Linux starts, systemd starts the
-four services, and the services start their loops. This is also why the rig recovers
+five services, and the services start their loops. This is also why the rig recovers
 after a power cut without help.
 
 Useful commands on the Pi:
@@ -155,7 +158,7 @@ Everything the rig knows is in ordinary text files on the SD card, in the folder
 |------|----------|------------|
 | `config.yaml` | The settings: experiment name, start, light-on and light-off times per treatment | The website (Settings page) |
 | `readings.csv` | One row every 5 minutes: temperature and humidity of each sensor | Logger |
-| `events.csv` | One row per event: light switch, power cut, settings change… | All four programs |
+| `events.csv` | One row per event: light switch, power cut, settings change… | All five programs |
 | `archive/<name>/` | The files of each finished experiment, read-only | The website (archive button) |
 
 - **YAML** is a format for settings that people can read and edit.
@@ -203,13 +206,35 @@ work. `tenebrio_network.py` decides which mode to use:
 - In the lab, there is no Wi-Fi it knows, so it starts the hotspot `tenebrio`. Your phone
   joins it and opens `http://10.42.0.1`.
 
+Nobody can fix the Wi-Fi by hand in the lab, so the program also checks every 30 seconds
+that the network really works. If it stops working, the program reconnects, then reloads
+the Wi-Fi driver, and as a last resort restarts the Pi, but only while all lights are off
+by schedule, so no light period is cut short.
+
+## Self-checks
+
+Three things restart the Pi by themselves when something is stuck, and each one writes a
+row in `events.csv`:
+
+- **The light check** (`tenebrio_validator.py`) reads each relay back from the relay board.
+  If a relay disagrees with the schedule for 90 seconds, it restarts the Pi. After the
+  restart, the light program sets every relay right within a second.
+- **The network check** (in `tenebrio_network.py`), described above.
+- **The watchdog:** a timer inside the Pi's chip. Linux resets it every minute. If Linux
+  freezes and stops resetting it, the timer restarts the Pi.
+
+Each self-check restarts the Pi at most once every 6 hours, so a broken part cannot cause
+endless restarts.
+
+Learn more: [watchdog timer](https://en.wikipedia.org/wiki/Watchdog_timer)
+
 Learn more: [wireless access point](https://en.wikipedia.org/wiki/Wireless_access_point) ·
 [NetworkManager](https://networkmanager.dev/)
 
 ## Installing and updating: deploy.sh
 
 `deploy.sh` is a **shell script**: a list of commands that runs on your computer. It uses
-SSH to copy the programs to the Pi, install the four service files, and restart the
+SSH to copy the programs to the Pi, install the five service files, and restart the
 services. You run it once to install, and again after every change to the code.
 
 Learn more: [SSH](https://en.wikipedia.org/wiki/Secure_Shell)
@@ -218,7 +243,7 @@ Learn more: [SSH](https://en.wikipedia.org/wiki/Secure_Shell)
 
 | When | What happens |
 |------|--------------|
-| Power on | Linux starts. It reads the time from the clock module. systemd starts the four services |
+| Power on | Linux starts. It reads the time from the clock module. systemd starts the five services |
 | Within 1 second | The light program trusts the time, calculates each light's state and sets the relays. It logs `clock trusted` and `set` |
 | Within 1 minute | The network program joins Wi-Fi or starts the hotspot. The logger notices if the last reading was long ago and records a power cut |
 | Every 5 minutes | The logger reads the four sensors and adds a row to `readings.csv` |

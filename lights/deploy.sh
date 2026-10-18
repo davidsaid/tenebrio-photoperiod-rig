@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copy the controller, logger, monitoring page and network service to the Pi and restart them.
+# Copy the controller, logger, monitoring page, network service and light check to the Pi and restart them.
 #
 # The live schedule is /var/lib/tenebrio-lights/config.yaml, which the monitoring page
 # edits. A deploy seeds it from config.yaml only if it does not exist yet; pass
@@ -46,11 +46,15 @@ if repo != live:
             print(f"  {key}: config.yaml={repo.get(key)!r}  live={live.get(key)!r}")
 PY
 fi
-sudo install -m 644 /opt/tenebrio-lights/tenebrio-{lights,logger,web,network}.service /etc/systemd/system/
+sudo install -m 644 /opt/tenebrio-lights/tenebrio-wifi-powersave.conf /etc/NetworkManager/conf.d/
+sudo nmcli general reload conf
+# The setting applies when a connection next starts; switch it off on the running one too.
+sudo /usr/sbin/iw dev wlan0 set power_save off
+sudo install -m 644 /opt/tenebrio-lights/tenebrio-{lights,logger,web,network,validator}.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --quiet tenebrio-lights tenebrio-logger tenebrio-web tenebrio-network
-sudo systemctl restart tenebrio-lights tenebrio-logger tenebrio-web tenebrio-network
+sudo systemctl enable --quiet tenebrio-lights tenebrio-logger tenebrio-web tenebrio-network tenebrio-validator
+sudo systemctl restart tenebrio-lights tenebrio-logger tenebrio-web tenebrio-network tenebrio-validator
 sync
-systemctl is-active tenebrio-lights tenebrio-logger tenebrio-web tenebrio-network | paste -sd ' ' -
+systemctl is-active tenebrio-lights tenebrio-logger tenebrio-web tenebrio-network tenebrio-validator | paste -sd ' ' -
 python3 /opt/tenebrio-lights/tenebrio_lights.py --config "$live" --check
 REMOTE

@@ -75,7 +75,7 @@ treatment's light goes on and off. You can also change all of this later on the 
 
     ./deploy.sh pi@tenebrio.local
 
-`deploy.sh` copies the software to `/opt/tenebrio-lights` on the Pi and starts four
+`deploy.sh` copies the software to `/opt/tenebrio-lights` on the Pi and starts five
 services:
 
 | Service | What it does |
@@ -83,7 +83,8 @@ services:
 | `tenebrio-lights` | Switches the relays from the schedule |
 | `tenebrio-logger` | Records temperature and humidity every 5 minutes |
 | `tenebrio-web` | Serves the website |
-| `tenebrio-network` | Uses your Wi-Fi when it is there, else starts the Pi's own hotspot |
+| `tenebrio-network` | Uses your Wi-Fi when it is there, else starts the Pi's own hotspot; repairs the Wi-Fi if it stops working |
+| `tenebrio-validator` | Checks that each relay matches the schedule; restarts the Pi if a light stays wrong |
 
 The live settings and all data are in `/var/lib/tenebrio-lights/` on the Pi.
 

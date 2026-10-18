@@ -589,19 +589,33 @@ function renderForm() {
     div.innerHTML = `
       <label class="check"><input type="checkbox" id="on-${id}" ${tr ? "checked" : ""}> ${t("treatment", { id })}</label>
       <div class="pair">
-        <div class="field"><label for="light-on-${id}">${t("set.light_on")}</label><input type="time" id="light-on-${id}" value="${tr ? tr.light_on : ""}"></div>
-        <div class="field"><label for="light-off-${id}">${t("set.light_off")}</label><input type="time" id="light-off-${id}" value="${tr ? tr.light_off : ""}"></div>
+        <div class="field"><label for="light-on-${id}-h">${t("set.light_on")}</label>${timePicker(`light-on-${id}`, tr && tr.light_on)}</div>
+        <div class="field"><label for="light-off-${id}-h">${t("set.light_off")}</label>${timePicker(`light-off-${id}`, tr && tr.light_off)}</div>
       </div>
       <p class="hint photoperiod" id="photoperiod-${id}"></p>`;
     div.querySelector("input[type=checkbox]").addEventListener("change", (ev) => { div.dataset.off = String(!ev.target.checked); });
-    for (const input of div.querySelectorAll("input[type=time]")) input.addEventListener("input", () => showPhotoperiod(id));
+    for (const select of div.querySelectorAll(".time24 select")) select.addEventListener("change", () => showPhotoperiod(id));
     return div;
   }));
   [1, 2, 3, 4].forEach(showPhotoperiod);
 }
 
+// Hour and minute dropdowns, always 24-hour: a native time input shows AM/PM on phones set
+// to it, and midnight as 12:00 AM confused the experimenters (2026-10-18).
+function timePicker(prefix, value) {
+  const [h, m] = value ? value.split(":") : ["", ""];
+  const options = (n, sel) => `<option value="">--</option>` + Array.from({ length: n }, (_, i) => pad(i))
+    .map((v) => `<option${v === sel ? " selected" : ""}>${v}</option>`).join("");
+  return `<span class="time24"><select id="${prefix}-h" aria-label="h">${options(24, h)}</select>`
+    + `<b>:</b><select id="${prefix}-m" aria-label="min">${options(60, m)}</select></span>`;
+}
+const timeValue = (prefix) => {
+  const h = $(`${prefix}-h`).value, m = $(`${prefix}-m`).value;
+  return h && m ? `${h}:${m}` : "";
+};
+
 function showPhotoperiod(id) {
-  const on = $(`light-on-${id}`).value.slice(0, 5), off = $(`light-off-${id}`).value.slice(0, 5);
+  const on = timeValue(`light-on-${id}`), off = timeValue(`light-off-${id}`);
   const ok = CLOCK_TIME.test(on) && CLOCK_TIME.test(off) && on !== off, light = ok ? lightBetween(on, off) : null;
   $(`photoperiod-${id}`).textContent = ok ? `${t("set.photoperiod", { l: hoursText(light), d: hoursText(lightBetween(off, on)) })} (${notation({ light, dark: lightBetween(off, on) })})` : "";
 }
@@ -614,9 +628,10 @@ function readForm() {
   if (!start) errors.push(t("set.err_start"));
   for (const id of [1, 2, 3, 4]) {
     if (!$(`on-${id}`).checked) continue;
-    const light_on = $(`light-on-${id}`).value.slice(0, 5), light_off = $(`light-off-${id}`).value.slice(0, 5);
+    const light_on = timeValue(`light-on-${id}`), light_off = timeValue(`light-off-${id}`);
     const valid = CLOCK_TIME.test(light_on) && CLOCK_TIME.test(light_off);
-    for (const el of [$(`light-on-${id}`), $(`light-off-${id}`)]) el.setCustomValidity(valid && light_on !== light_off ? "" : "HH:MM");
+    for (const el of document.querySelectorAll(`#light-on-${id}-h, #light-on-${id}-m, #light-off-${id}-h, #light-off-${id}-m`))
+      el.setCustomValidity(valid && light_on !== light_off ? "" : "HH:MM");
     if (!valid) errors.push(t("set.err_time", { id }));
     else if (light_on === light_off) errors.push(t("set.err_same", { id }));
     treatments.push({ id, light_on, light_off });

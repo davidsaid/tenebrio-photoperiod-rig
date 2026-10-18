@@ -40,7 +40,8 @@ Settings need the settings password. It starts as `tenebrio`. Change it in the s
 "Settings password".
 
 - **Light schedule:** the experiment name, the start, and the time each treatment's light
-  goes on and off, every day. The photoperiod appears under the times, for example "20 h
+  goes on and off, every day. Times are 24-hour: choose the hour (00–23) and the minute
+  from the two lists, so midnight is 00:00. The photoperiod appears under the times, for example "20 h
   light · 4 h dark". If the light goes off at an earlier time than it goes on (on 07:00,
   off 03:00), the light period crosses midnight. The lights follow local time: on the
   night daylight saving time ends, the dark period is one hour longer. Before the start, all

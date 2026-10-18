@@ -51,7 +51,7 @@ New to electronics or programming? Start with [how the rig works](docs/how-it-wo
 
 | Path | Contents |
 |------|----------|
-| `lights/` | All the software: light control (`tenebrio_lights.py`), logger (`tenebrio_logger.py`), website (`tenebrio_web.py`, `web/`), network service (`tenebrio_network.py`), systemd services, `deploy.sh` and tests. [lights/README.md](lights/README.md) has the technical details. |
+| `lights/` | All the software: light control (`tenebrio_lights.py`), logger (`tenebrio_logger.py`), website (`tenebrio_web.py`, `web/`), network service (`tenebrio_network.py`), light check (`tenebrio_validator.py`), systemd services, `deploy.sh` and tests. [lights/README.md](lights/README.md) has the technical details. |
 | `lights/config.yaml` | The schedule template: experiment name, start, and each treatment's light-on and light-off times |
 | `docs/` | Bill of materials, guides and wiring drawings (PDF and PNG) |
 | `tools/` | The Python scripts that draw the wiring drawings |

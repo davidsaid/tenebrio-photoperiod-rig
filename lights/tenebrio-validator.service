@@ -1,0 +1,13 @@
+[Unit]
+Description=Tenebrio rig light check: relays against the schedule, restart the Pi if wrong
+After=tenebrio-lights.service
+
+[Service]
+# Root: restarts the Pi.
+WorkingDirectory=/opt/tenebrio-lights
+ExecStart=/usr/bin/python3 /opt/tenebrio-lights/tenebrio_validator.py --config /var/lib/tenebrio-lights/config.yaml --events /var/lib/tenebrio-lights/events.csv
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

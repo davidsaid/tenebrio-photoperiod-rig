@@ -34,7 +34,8 @@ Check a config without touching the Pi:
     ./deploy.sh pi@tenebrio.local   # another host than the `tenebrio` SSH alias
 
 This copies the folder to `/opt/tenebrio-lights` on the Pi (`ssh tenebrio`) and restarts
-the three services. It prints any difference between the live schedule and `config.yaml`,
+the five services, and installs the NetworkManager setting that turns Wi-Fi power saving
+off. It prints any difference between the live schedule and `config.yaml`,
 so that a change made on the phone is noticed before it is overwritten. Restarting does
 not blink the lights.
 
@@ -210,6 +211,34 @@ light-on periods, and the events to draw), `GET /api/archive` (the archived expe
 the single built-in radio. It uses home Wi-Fi (`home-wifi`) when it connects, and
 otherwise the `tenebrio` hotspot. From the hotspot it retries home Wi-Fi every 30 minutes,
 never while a phone is connected. Every change is logged as `network: ...`.
+
+It also checks the active network every 30 s: on home Wi-Fi the router must answer a ping;
+on the hotspot the radio must be an access point holding 10.42.0.1. After 3 failed checks
+in a row it repairs, one step at a time while the checks keep failing: reconnect, reload
+the Wi-Fi driver (`brcmfmac`), and as a last resort restart the Pi, but only while every
+light is scheduled dark, and at most once per 6 h
+(`/var/lib/tenebrio-lights/network-restart` holds the time of the last one). Each step is
+logged. Wi-Fi power saving is off (`tenebrio-wifi-powersave.conf`, installed by
+`deploy.sh` in `/etc/NetworkManager/conf.d/`): on 2026-10-17 the Pi stayed associated
+with home Wi-Fi overnight but stopped answering, so the website was unreachable and the
+hotspot fallback never started.
+
+## Light check
+
+`tenebrio_validator.py` (service `tenebrio-validator`, runs as root) reads each relay back
+from the HAT every 15 s and compares it with the schedule, computed as the controller does
+(all off while the clock is not trusted). A mismatch, or a HAT that does not answer, that
+lasts 90 s is logged as `controller check FAILED: ...` and the Pi restarts (2026-10-18:
+a frozen controller would otherwise hold a wrong light for hours in the unattended lab).
+90 s is longer than the controller's 60 s re-assert, so faults it corrects by itself and
+the instant of a switch never cause a restart. At most one restart per 6 h
+(`/var/lib/tenebrio-lights/light-check-restart`); after that the error is logged once and
+the Pi is left running. It reads the relays only: it cannot see whether the LEDs light.
+Tested on the Pi on 2026-10-18 by stopping the controller and switching on unused relay 3:
+the error was logged after 97 s and the Pi restarted with every relay correct.
+
+The kernel's hardware watchdog (`bcm2835-wdt`, fed by systemd every minute,
+`RuntimeWatchdogSec=1min`) restarts the Pi if the whole system freezes.
 
 The "solo punto de acceso" switch on the Configuración page creates `/var/lib/tenebrio-lights/hotspot-only`.
 While that file exists the Pi uses only the hotspot, across reboots, so the lab setup can
